@@ -1,0 +1,3 @@
+"""Russian Military OSINT Intelligence Tool"""
+
+__version__ = "1.0.0"
