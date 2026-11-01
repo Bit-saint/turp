@@ -88,3 +88,26 @@ def nearby_places(lon: float, lat: float, radius_m: float = 300, release: str = 
                     "address": ", ".join(str(addr[k]) for k in ("freeform", "postcode", "locality") if addr.get(k)),
                     "distance_m": round(dist)})
     return sorted(out, key=lambda x: x["distance_m"])
+
+
+NATURAL_COVER = ("forest", "grass", "shrub", "crop", "wetland", "moss", "mangrove")
+
+
+def land_cover(lon_min: float, lat_min: float, lon_max: float, lat_max: float,
+               subtypes=NATURAL_COVER, release: str = RELEASE):
+    """Union of Overture land-cover polygons (ESA WorldCover-derived) intersecting a box."""
+    import pyarrow.compute as pc
+    import pyarrow.dataset as ds
+    import shapely
+    import shapely.wkb
+    from shapely.geometry import box
+
+    d = ds.dataset(f"{_BUCKET}/release/{release}/theme=base/type=land_cover/", filesystem=_fs(), format="parquet")
+    f = ((pc.field("bbox", "xmax") > lon_min) & (pc.field("bbox", "xmin") < lon_max)
+         & (pc.field("bbox", "ymax") > lat_min) & (pc.field("bbox", "ymin") < lat_max)
+         & pc.field("subtype").isin(list(subtypes))
+         & (pc.field("cartography", "max_zoom") >= 13))  # most detailed level only
+    tb = d.to_table(columns=["geometry"], filter=f)
+    geoms = [shapely.wkb.loads(g) for g in tb.column("geometry").to_pylist()]
+    clip = box(lon_min, lat_min, lon_max, lat_max)
+    return shapely.union_all([g.intersection(clip) for g in geoms]) if geoms else None

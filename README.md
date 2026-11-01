@@ -1,4 +1,4 @@
-# s1lot — parking-lot activity from Sentinel-1 radar
+# s1lot — parking-lot activity and individual targets from Sentinel-1 radar
 
 `s1lot` measures how busy a parking lot is over time using free Copernicus
 **Sentinel-1** C-band SAR images. Radar works at night and through cloud, so
@@ -58,6 +58,69 @@ with the per-scene data in [`timeseries.csv`](runs/globus_ruesselsheim/report/ti
 The tool also flags acquisitions that don't fit the usual pattern. Examples are the weekday evening of
 17 Jun 2026, which looks empty, and the Sunday morning of 14 Jun 2026, which looks very busy (a car-boot
 sale or another event?). It also marks scenes where the surroundings changed too, which suggests weather.
+
+## Individual targets over time: aircraft at Helsinki-Vantaa (EFHK)
+
+`s1lot targets` detects individual bright targets in every scene, such as aircraft, trucks or containers. It
+groups them into recurring positions, for example aircraft stands, and records when each position is occupied.
+
+```bash
+s1lot run     examples/helsinki_vantaa/site.yaml --workdir runs/helsinki_vantaa --start 2025-11-01 --end 2026-10-31
+s1lot targets examples/helsinki_vantaa/site.yaml --workdir runs/helsinki_vantaa
+```
+
+**How it works:**
+
+1. **Background:** per track, the empty background is each pixel's 10th percentile over time (VV+VH). Fixed
+   structures such as terminals, jet bridges and masts are part of the background, so they are not detected.
+2. **Detection:** a target is at least 2 connected pixels that are ≥ 7 dB above the background and ≥ −2 dB in
+   absolute terms, inside the apron polygons.
+3. **Positions:** the recurring positions are peaks of the detection-density map, at least 40 m apart.
+4. **Presence:** for each position, every scene is classed present or absent from the strongest pixel within
+   25 m.
+5. **Long stays:** runs where a position is occupied for 10 days or more.
+6. **False alarms:** the same detector runs on vegetation (Overture land cover) away from taxiways and runways,
+   where no target can be.
+
+The search area is the apron polygons from Overture/OSM. Positions are labelled with the nearest OSM gate.
+
+**Example run:**
+
+- 231 Sentinel-1 scenes over one year, from five tracks (three morning, two evening).
+- 6,862 detections, a median of 25 per scene.
+- 76 recurring positions and 70 long stays.
+
+Outputs are in [`runs/helsinki_vantaa/targets/`](runs/helsinki_vantaa/targets/targets.html): the report and
+`detections.csv`, `positions.csv`, `presence.csv` (positions × scenes) and `long_stays.csv`.
+
+![appearance history](runs/helsinki_vantaa/targets/timeline.png)
+
+**Validation: what it shows and what it doesn't.** Without flight records, a check that the radar targets are
+aircraft has to rely on indirect evidence:
+
+| Check | Result | Verdict |
+|---|---|---|
+| False alarms on vegetation vs detections on aprons | 2.4 vs 12.6 per km² per scene | Most detections are real objects; at most about 19% could be noise |
+| Positions within 80 m of a mapped gate | 40% of positions vs 12% of random apron points (p = 3·10⁻⁵) | Detections cluster at stands |
+| Positions vs aircraft in Sentinel-2 images (visual) | Several positions on the southern pier coincide with aircraft in the optical image | Geometry is consistent |
+| Sentinel-2 (12:50 local) bracketed by radar passes that agree | A white object in 14% of cases when the radar says present, 11% when it says absent | **Not confirmed** |
+| Long stays vs Sentinel-2 brightness inside/outside the stay | 25 of 48 brighter inside (p = 0.55) | **Not confirmed**. The bright long stays are in winter: likely **snow piles** |
+
+**Conclusion.** The tool reliably finds bright objects that appear and disappear at aircraft stands. However:
+
+- It **can't tell an aircraft from a ground vehicle, de-icing rig or snow pile.**
+- With the free data available here, the detections **can't be independently confirmed as aircraft.**
+- Sentinel-2 images are taken 5–6 hours away from the radar passes and are too coarse (10 m) to settle it.
+
+A real validation needs flight records (ADS-B, for example from OpenSky; that network was blocked here) or a few
+high-resolution images taken at the radar pass times.
+
+**Specific limits:**
+
+- **Contact gates:** aircraft that are almost always parked at a gate become part of the background and are
+  missed.
+- **Neighbouring stands:** aircraft on adjacent stands can merge into one target.
+- **Winter:** snow clearing adds many false targets from November to April.
 
 ## How it works
 

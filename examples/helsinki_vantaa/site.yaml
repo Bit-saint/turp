@@ -1,0 +1,18 @@
+# Example target-tracking site: the aprons of Helsinki-Vantaa airport (EFHK).
+# Aircraft are large metal targets on smooth concrete, so each one shows up in
+# Sentinel-1 as a bright blob. `s1lot targets` detects them per scene and
+# follows each recurring aircraft position over time.
+name: Helsinki-Vantaa airport aprons
+lot: aprons.geojson            # search area: apron polygons (Overture / OpenStreetMap)
+timezone: Europe/Helsinki
+country: FI
+elevation_m: 70                # ~51 m above sea level + ~19 m geoid undulation
+pixel_size: 10
+buffer_m: 300
+ref_inner_m: 60
+ref_outer_m: 400
+edge_erode_m: 0
+targets:
+  labels: gates.geojson                     # name positions after the nearest gate (OSM aeroway=gate)
+  control_area: natural_cover.geojson       # false-alarm control: forest/grass/shrub (Overture land cover)
+  control_exclude: runways_taxiways.geojson # aircraft taxi here, so keep it out of the control area

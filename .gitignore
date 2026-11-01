@@ -4,3 +4,4 @@ __pycache__/
 # bulky / regenerable run artefacts (keep scenes.json and the report)
 runs/*/cache/
 runs/*/chips/
+runs/*/optical/

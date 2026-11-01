@@ -85,6 +85,37 @@ def cmd_analyse(a):
     print(json.dumps(an.summary(), indent=1, default=str))
 
 
+def cmd_targets(a):
+    from .targets import TargetParams, detect_targets, write_target_report
+    site, p = _site(a), _paths(a.workdir)
+    params = TargetParams.from_site(site)
+    for k in ("ratio_db", "min_db", "min_pixels"):
+        v = getattr(a, k)
+        if v is not None:
+            setattr(params, k, v)
+    res = detect_targets(site, p["chips"], params)
+    log.info("%d detections, %d recurring positions", len(res.detections), len(res.positions))
+    rgb = name = optical = None
+    if not a.no_optical:
+        try:
+            from .s2context import true_colour
+            out = true_colour(site, today=res.scenes.local_time.max().date())
+            if out:
+                rgb, name = out
+            if len(res.positions):
+                from .optical import optical_presence, s2_series
+                t = res.scenes.time_utc
+                series = s2_series(site, t.min().date(), t.max().date(), p["work"] / "optical",
+                                   search_mask=res.search_mask)
+                log.info("%d cloud-free Sentinel-2 scenes for the cross-check", len(series))
+                optical = optical_presence(series, res.positions, site, radius_m=params.radius_m)
+        except Exception as e:  # noqa: BLE001 - optical data is optional
+            log.warning("optical data unavailable: %s", e)
+    path = write_target_report(res, site, p["work"] / "targets", p["chips"], rgb, name, optical)
+    log.info("target report: %s", path)
+    print(json.dumps(json.loads((p["work"] / "targets" / "summary.json").read_text()), indent=1))
+
+
 def cmd_run(a):
     cmd_discover(a)
     cmd_process(a)
@@ -132,6 +163,13 @@ def main(argv=None):
     common(an)
     analysis_opts(an)
     an.set_defaults(func=cmd_analyse)
+    t = sub.add_parser("targets", help="detect individual targets (e.g. aircraft) and track each position over time")
+    common(t)
+    t.add_argument("--ratio-db", type=float, help="dB above the empty background (default 7)")
+    t.add_argument("--min-db", type=float, help="minimum absolute VV+VH sigma0 in dB (default -2)")
+    t.add_argument("--min-pixels", type=int, help="connected pixels per target (default 2)")
+    t.add_argument("--no-optical", action="store_true", help="skip Sentinel-2 context and cross-check")
+    t.set_defaults(func=cmd_targets)
     r = sub.add_parser("run", help="discover + process + analyse")
     common(r, dates=True, workers=8)
     r.add_argument("--no-noise", action="store_true")

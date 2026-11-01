@@ -36,6 +36,8 @@ class Site:
     notes: str = ""
     country: str | None = None       # ISO code for public holidays
     subdivision: str | None = None
+    targets: dict | None = None      # options for the point-target analysis
+    base_dir: Path | None = None     # directory of the YAML file (relative paths)
 
     # ---------- construction ----------
     @classmethod
@@ -45,12 +47,16 @@ class Site:
         lot = _load_geom(cfg["lot"], path.parent)
         exclude = _load_geom(cfg["exclude"], path.parent) if cfg.get("exclude") else None
         keys = ("pixel_size", "buffer_m", "ref_inner_m", "ref_outer_m", "edge_erode_m", "notes",
-                "country", "subdivision")
+                "country", "subdivision", "targets")
         return cls(
             name=cfg["name"], lot=lot, exclude=exclude,
             timezone=cfg.get("timezone", "UTC"), elevation_m=cfg.get("elevation_m"),
-            **{k: cfg[k] for k in keys if k in cfg},
+            base_dir=path.parent, **{k: cfg[k] for k in keys if k in cfg},
         )
+
+    def load_geometry(self, spec):
+        """Load an extra geometry referenced from the site file (path or inline GeoJSON)."""
+        return _load_geom(spec, self.base_dir or Path("."))
 
     # ---------- geometry helpers ----------
     @property
@@ -111,7 +117,7 @@ class Grid:
     def lonlat(self) -> tuple[np.ndarray, np.ndarray]:
         """Lon/lat of every pixel centre."""
         cols, rows = np.meshgrid(np.arange(self.width) + 0.5, np.arange(self.height) + 0.5)
-        x, y = self.transform * (cols, rows)
+        x, y = self.transform @ (cols, rows)
         t = Transformer.from_crs(self.crs, 4326, always_xy=True)
         return t.transform(x, y)
 

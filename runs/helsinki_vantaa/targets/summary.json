@@ -1,0 +1,47 @@
+{
+ "n_scenes": 231,
+ "n_clutter_flagged": 0,
+ "n_detections": 6862,
+ "n_positions": 76,
+ "targets_per_scene_median": 25.0,
+ "search_density_per_km2": 12.58,
+ "control_density_per_km2": 2.369,
+ "params": {
+  "ratio_db": 7.0,
+  "min_db": -2.0,
+  "min_pixels": 2,
+  "background_pct": 10.0,
+  "search_buffer_m": 20.0,
+  "cluster_m": 40.0,
+  "radius_m": 25.0,
+  "min_hits_frac": 0.05,
+  "label_max_m": 120.0,
+  "control_max_db": -6.0,
+  "control_exclude_m": 60.0,
+  "clutter_factor": 3.0
+ },
+ "mean_position_occupancy": 0.266,
+ "targets_per_scene_by_pass": {
+  "evening": 24.0,
+  "morning": 26.0
+ },
+ "n_long_stays": 70,
+ "label_association": {
+  "positions_within": 0.395,
+  "random_within": 0.125,
+  "near_m": 80.0,
+  "p": 3.40838841755064e-05
+ },
+ "optical_check": {
+  "pairs": 529,
+  "agreement": 0.837,
+  "radar_present_optical_present": 0.139,
+  "radar_absent_optical_absent": 0.888,
+  "n_s2_scenes": 38
+ },
+ "long_stay_optical": {
+  "n": 48,
+  "brighter_inside": 25,
+  "p": 0.553036156527547
+ }
+}

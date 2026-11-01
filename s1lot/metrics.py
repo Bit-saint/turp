@@ -114,6 +114,20 @@ def _holidays(site: Site, years):
     return holidays.country_holidays(site.country, subdiv=site.subdivision, years=sorted(years))
 
 
+def scene_table(metas: list[dict], site: Site) -> pd.DataFrame:
+    """Scene metadata with local time, track id, pass slot and day type."""
+    df = pd.DataFrame(metas)
+    df["time_utc"] = pd.to_datetime(df.start, utc=True)
+    df["local_time"] = df.time_utc.dt.tz_convert(ZoneInfo(site.timezone))
+    df["track"] = [f"{'A' if p.startswith('asc') else 'D'}{r:03d}" for p, r in zip(df.pass_direction, df.rel_orbit)]
+    df["pass_slot"] = np.where(df.local_time.dt.hour < 12, "morning", "evening")
+    hol = _holidays(site, set(df.local_time.dt.year))
+    df["weekday"] = df.local_time.dt.day_name().str[:3]
+    df["daytype"] = [_daytype(t, hol) for t in df.local_time]
+    df["holiday"] = [(hol.get(t.date()) if hol is not None else None) for t in df.local_time]
+    return df
+
+
 def analyse(site: Site, chip_dir: str | Path, pol: str = "vh", threshold_db: float = 3.0,
             baseline_pct: float = 10.0, boxcar_size: int = 5, min_track_scenes: int = 8,
             weather_flag_db: float = 1.0, exclude_months: tuple[str, ...] = ()) -> Analysis:
@@ -122,17 +136,7 @@ def analyse(site: Site, chip_dir: str | Path, pol: str = "vh", threshold_db: flo
         raise RuntimeError(f"no processed scenes in {chip_dir}")
     masks = site.masks()
     lot, ref = masks["lot"], masks["ref"]
-    tz = ZoneInfo(site.timezone)
-
-    df = pd.DataFrame(metas)
-    df["time_utc"] = pd.to_datetime(df.start, utc=True)
-    df["local_time"] = df.time_utc.dt.tz_convert(tz)
-    df["track"] = [f"{'A' if p.startswith('asc') else 'D'}{r:03d}" for p, r in zip(df.pass_direction, df.rel_orbit)]
-    df["pass_slot"] = np.where(df.local_time.dt.hour < 12, "morning", "evening")
-    hol = _holidays(site, set(df.local_time.dt.year))
-    df["weekday"] = df.local_time.dt.day_name().str[:3]
-    df["daytype"] = [_daytype(t, hol) for t in df.local_time]
-    df["holiday"] = [(hol.get(t.date()) if hol is not None else None) for t in df.local_time]
+    df = scene_table(metas, site)
     if exclude_months:
         keep = (~df.local_time.dt.strftime("%Y-%m").isin(exclude_months)).to_numpy()
         df, arrays = df[keep].reset_index(drop=True), [a for a, k in zip(arrays, keep) if k]
