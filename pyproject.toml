@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "s1lot"
+version = "0.1.0"
+description = "Monitor parking-lot activity over time with Sentinel-1 SAR (open data, no account needed)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+  "numpy>=1.24",
+  "scipy>=1.10",
+  "pandas>=2.0",
+  "matplotlib>=3.7",
+  "rasterio>=1.3",
+  "pyproj>=3.5",
+  "shapely>=2.0",
+  "requests>=2.28",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+overture = ["pyarrow>=14"]   # `s1lot find-lots`
+holidays = ["holidays>=0.40"]
+dev = ["pytest>=7"]
+all = ["pyarrow>=14", "holidays>=0.40"]
+
+[project.scripts]
+s1lot = "s1lot.cli:main"
+
+[tool.setuptools]
+packages = ["s1lot"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

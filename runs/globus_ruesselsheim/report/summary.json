@@ -1,0 +1,42 @@
+{
+ "n_scenes": 194,
+ "n_weather_flagged": 16,
+ "first": "2025-11-01 18:16:23+01:00",
+ "last": "2026-10-31 06:41:58+01:00",
+ "tracks": {
+  "A015": 65,
+  "D066": 62,
+  "D139": 67
+ },
+ "params": {
+  "pol": "vh",
+  "threshold_db": 3.0,
+  "baseline_pct": 10.0,
+  "boxcar": 5,
+  "activity_scale_db": 1.568,
+  "weather_flag_db": 1.0,
+  "lot_pixels": 430,
+  "ref_pixels": 4319
+ },
+ "activity_by_daytype": {
+  "Mon-Fri|evening|mean": 67.33,
+  "Mon-Fri|evening|count": 45.0,
+  "Mon-Fri|morning|mean": 33.07,
+  "Mon-Fri|morning|count": 90.0,
+  "Sat|evening|mean": 78.15,
+  "Sat|evening|count": 10.0,
+  "Sat|morning|mean": 39.47,
+  "Sat|morning|count": 19.0,
+  "Sun/holiday|evening|mean": 8.79,
+  "Sun/holiday|evening|count": 10.0,
+  "Sun/holiday|morning|mean": 35.5,
+  "Sun/holiday|morning|count": 20.0
+ },
+ "evening_open_vs_closed": {
+  "open_median": 69.5,
+  "closed_median": -2.0,
+  "n_open": 55,
+  "n_closed": 10,
+  "mannwhitney_p": 2.407082935509118e-06
+ }
+}

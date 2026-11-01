@@ -1,0 +1,20 @@
+# Example site: customer car park of the Globus hypermarket,
+# Am Steinmarkt 1, 65428 Rüsselsheim am Main, Hesse, Germany.
+#
+# Why this lot: it is a large (6 ha) open-air surface car park, and German
+# shop-opening law keeps the store closed on Sundays and public holidays.
+# That gives a known pattern to check the radar signal against.
+name: Globus Rüsselsheim car park
+lot: lot.geojson               # outline from Overture Maps (OpenStreetMap)
+exclude: other_parking.geojson # keep other car parks out of the reference ring
+timezone: Europe/Berlin
+country: DE                    # public holidays (needs the optional `holidays` package)
+subdivision: HE
+# Ellipsoidal height of the lot (~87 m above sea level + ~48 m geoid undulation),
+# used to correct GRD geolocation for terrain height. Omit if unknown.
+elevation_m: 135
+pixel_size: 10
+buffer_m: 400
+ref_inner_m: 30
+ref_outer_m: 250
+edge_erode_m: 10

@@ -1,0 +1,114 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       8.3911896,
+       49.9703005
+      ],
+      [
+       8.3906824,
+       49.9695942
+      ],
+      [
+       8.3912908,
+       49.9693378
+      ],
+      [
+       8.3918169,
+       49.9701293
+      ],
+      [
+       8.3911896,
+       49.9703005
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "overture_id": "3fc05166-cd25-361b-8a25-ea65b6ad3a8f",
+    "name": null,
+    "area_ha": 0.457,
+    "parking": "surface",
+    "access": "private"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       8.388159,
+       49.9719183
+      ],
+      [
+       8.388267,
+       49.9716737
+      ],
+      [
+       8.3886454,
+       49.9721036
+      ],
+      [
+       8.3884862,
+       49.9723132
+      ],
+      [
+       8.388159,
+       49.9719183
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "overture_id": "4f59dcf2-49a9-31f1-82bc-6aa38e072f6e",
+    "name": null,
+    "area_ha": 0.108,
+    "access": "yes"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       8.3833939,
+       49.9690226
+      ],
+      [
+       8.3834636,
+       49.9687565
+      ],
+      [
+       8.3838297,
+       49.968976
+      ],
+      [
+       8.3837265,
+       49.9691188
+      ],
+      [
+       8.3833939,
+       49.9690226
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "overture_id": "06783058-e1dd-3191-9180-6bafdff1b398",
+    "name": null,
+    "area_ha": 0.068,
+    "parking": "surface"
+   }
+  }
+ ]
+}
