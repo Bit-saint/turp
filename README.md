@@ -95,25 +95,49 @@ Outputs are in [`runs/helsinki_vantaa/targets/`](runs/helsinki_vantaa/targets/ta
 
 ![appearance history](runs/helsinki_vantaa/targets/timeline.png)
 
-**Validation: what it shows and what it doesn't.** Without flight records, a check that the radar targets are
-aircraft has to rely on indirect evidence:
+**Validation with Sentinel-1 only.** Twice a day, two Sentinel-1 satellites image EFHK 7–8 minutes apart from
+different orbits. This happened 11 times in the year. Parked aircraft don't move in 8 minutes, so a reliable
+detector should give the same answer in both images. Comparing scene pairs at increasing time gaps gives a
+*lag curve*:
 
-| Check | Result | Verdict |
-|---|---|---|
-| False alarms on vegetation vs detections on aprons | 2.4 vs 12.6 per km² per scene | Most detections are real objects; at most about 19% could be noise |
-| Positions within 80 m of a mapped gate | 40% of positions vs 12% of random apron points (p = 3·10⁻⁵) | Detections cluster at stands |
-| Positions vs aircraft in Sentinel-2 images (visual) | Several positions on the southern pier coincide with aircraft in the optical image | Geometry is consistent |
-| Sentinel-2 (12:50 local) bracketed by radar passes that agree | A white object in 14% of cases when the radar says present, 11% when it says absent | **Not confirmed** |
-| Long stays vs Sentinel-2 brightness inside/outside the stay | 25 of 48 brighter inside (p = 0.55) | **Not confirmed**. The bright long stays are in winter: likely **snow piles** |
+![repeat test](runs/helsinki_vantaa/targets/repeat.png)
 
-**Conclusion.** The tool reliably finds bright objects that appear and disappear at aircraft stands. However:
+| Gap between images (different tracks) | Scene pairs | Kappa (0 = chance, 1 = perfect) | P(present in B, given present in A) |
+|---|---|---|---|
+| < 30 min (7.5 min) | 11 | **0.26** | 0.43 |
+| 30 min – 14 h (morning vs evening) | 149 | 0.07 | 0.33 |
+| 14 – 36 h (same time next day) | 109 | 0.21 | 0.42 |
+| 4 – 12 d | 1,148 | 0.08 | 0.32 |
+| > 60 d | 14,272 | 0.03 | 0.28 |
 
-- It **can't tell an aircraft from a ground vehicle, de-icing rig or snow pile.**
-- With the free data available here, the detections **can't be independently confirmed as aircraft.**
-- Sentinel-2 images are taken 5–6 hours away from the radar passes and are too coarse (10 m) to settle it.
+More checks from the near-simultaneous pairs:
 
-A real validation needs flight records (ADS-B, for example from OpenSky; that network was blocked here) or a few
-high-resolution images taken at the radar pass times.
+- Only **32%** of targets in one image have a target within 30 m in the other, against 21% for images days apart.
+- The underlying brightness scores correlate at ρ = 0.50, against 0.15 for images more than 5 days apart.
+- No detection threshold between 4 and 12 dB raises the 7-minute kappa above 0.41.
+
+Other checks:
+
+- On vegetation, where no target can be, the detector finds 2.4 targets per km² per image, against 12.6 per km² on
+  the aprons.
+- 40% of positions lie within 80 m of a mapped gate, against 12% of random apron points.
+
+**What this means:**
+
+- **The detections are mostly real.** Speckle would give kappa ≈ 0 at every gap and fixed structures a high kappa at
+  every gap. Instead, agreement is highest at a few minutes, falls with time and reaches chance after months.
+- **The daily schedule shows up.** Pairs at the same time of day (14–36 h apart) agree more than morning-versus-evening
+  pairs.
+- **Single images are unreliable.** At kappa 0.26 for images 8 minutes apart, the present/absent answer for one
+  stand in one image is only modestly better than chance.
+- **Part of the disagreement is physical.** An aircraft's radar echo depends strongly on its orientation relative to
+  the radar, and the two images view it from different orbits. Also, 20 m resolution merges neighbouring aircraft.
+- **Use the output in aggregate:** occupancy rates per position, long stays, and activity patterns over weeks. Don't
+  rely on single image-by-position answers.
+- **Identity is unknown.** The radar can't tell an aircraft from a ground vehicle, de-icing rig or snow pile.
+
+`s1lot targets --optical` adds an optional Sentinel-2 context image and optical cross-check. These were
+inconclusive here, because Sentinel-2 images are taken 5–6 h away from the radar passes.
 
 **Specific limits:**
 

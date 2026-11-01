@@ -312,6 +312,86 @@ def episodes(presence: pd.DataFrame, times: pd.Series, min_days: float = 10, min
     return pd.DataFrame(recs, columns=["position", "start", "end", "days", "scenes", "detected_frac"])
 
 
+LAG_BINS = [(0, 0.5, "< 30 min"), (0.5, 14, "30 min – 14 h"), (14, 36, "14 – 36 h"), (36, 96, "1.5 – 4 d"),
+            (96, 288, "4 – 12 d"), (288, 1440, "12 – 60 d"), (1440, np.inf, "> 60 d")]
+
+
+def _kappa(a: np.ndarray, b: np.ndarray) -> float:
+    po = (a == b).mean()
+    pa, pb = a.mean(), b.mean()
+    pe = pa * pb + (1 - pa) * (1 - pb)
+    return float((po - pe) / (1 - pe)) if pe < 1 else float("nan")
+
+
+def repeat_test(res: TargetResult, near_h: float = 0.5, match_m: float = 30.0, far_h: float = 120.0,
+                seed: int = 0) -> dict:
+    """Sentinel-1-only consistency test.
+
+    1. *Lag curve*: presence agreement (Cohen's kappa) between pairs of scenes from
+       different tracks, binned by time lag. Real, persistent objects give high
+       agreement at short lags that decays with time; speckle gives kappa ~0 at all lags.
+    2. *Near-simultaneous pairs*: two satellites sometimes image the site minutes
+       apart from different orbits. For every detection in one image, is there a
+       detection within ``match_m`` in the other? Compared with images of the same
+       track more than ``far_h`` hours apart (chance level).
+    """
+    from scipy.spatial import cKDTree
+    from scipy.stats import spearmanr
+
+    sc = res.scenes
+    t = sc.time_utc.to_numpy(dtype="datetime64[ns]")
+    trk = sc.track.to_numpy(dtype=object)
+    prod = sc["product"].to_numpy(dtype=object)
+    P = res.presence[prod].to_numpy(dtype=bool)
+    S = res.score[prod].to_numpy(dtype=float)
+    n = len(t)
+    lag = np.abs((t[:, None] - t[None, :]) / np.timedelta64(1, "h"))
+    up = np.triu(np.ones((n, n), bool), 1)
+    diff = trk[:, None] != trk[None, :]
+    curve = []
+    for lo, hi, name in LAG_BINS:
+        ii, jj = np.nonzero((lag >= lo) & (lag < hi) & up & diff)
+        if len(ii) == 0 or P.size == 0:
+            continue
+        a, b = P[:, ii].ravel(), P[:, jj].ravel()
+        curve.append({"lag": name, "scene_pairs": int(len(ii)), "kappa": round(_kappa(a, b), 3),
+                      "p_b_given_a": round(float((a & b).sum() / max(a.sum(), 1)), 3)})
+    out = {"lag_curve": curve, "base_occupancy": round(float(P.mean()), 3) if P.size else None}
+
+    ii, jj = np.nonzero((lag < near_h) & up & diff)
+    out["near_pairs"] = int(len(ii))
+    if len(ii) and P.size:
+        far_i, far_j = np.nonzero((lag > far_h) & up & diff)
+        out["near_kappa"] = round(_kappa(P[:, ii].ravel(), P[:, jj].ravel()), 3)
+        out["near_score_spearman"] = round(float(spearmanr(S[:, ii].ravel(), S[:, jj].ravel())[0]), 3)
+        if len(far_i):
+            out["far_score_spearman"] = round(float(spearmanr(S[:, far_i].ravel(), S[:, far_j].ravel())[0]), 3)
+        det = res.detections
+        rng = np.random.default_rng(seed)
+        d_near, d_far, rows = [], [], []
+        for i, j in zip(ii, jj):
+            A = det.loc[det["product"] == prod[i], ["x", "y"]].to_numpy()
+            B = det.loc[det["product"] == prod[j], ["x", "y"]].to_numpy()
+            if not len(A) or not len(B):
+                continue
+            dn = cKDTree(B).query(A)[0]
+            d_near += list(dn)
+            cand = np.nonzero((trk == trk[j]) & (lag[i] > far_h))[0]
+            if len(cand):
+                Bk = det.loc[det["product"] == prod[rng.choice(cand)], ["x", "y"]].to_numpy()
+                if len(Bk):
+                    d_far += list(cKDTree(Bk).query(A)[0])
+            rows.append({"time_a": sc.local_time.iloc[i], "track_a": trk[i], "track_b": trk[j],
+                         "minutes": round(float(lag[i, j] * 60), 1), "targets_a": len(A), "targets_b": len(B),
+                         "matched_a": round(float((dn <= match_m).mean()), 3),
+                         "presence_agreement": round(float((P[:, i] == P[:, j]).mean()), 3)})
+        out["near_pair_table"] = rows
+        out["match_m"] = match_m
+        out["matched_near"] = round(float(np.mean(np.array(d_near) <= match_m)), 3) if d_near else None
+        out["matched_far"] = round(float(np.mean(np.array(d_far) <= match_m)), 3) if d_far else None
+    return out
+
+
 # ------------------------------------------------------------------ outputs
 def write_target_report(res: TargetResult, site: Site, out_dir: str | Path, chip_dir: str | Path,
                         rgb: np.ndarray | None = None, rgb_name: str | None = None,

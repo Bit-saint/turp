@@ -32,16 +32,58 @@
   "near_m": 80.0,
   "p": 3.40838841755064e-05
  },
- "optical_check": {
-  "pairs": 529,
-  "agreement": 0.837,
-  "radar_present_optical_present": 0.139,
-  "radar_absent_optical_absent": 0.888,
-  "n_s2_scenes": 38
- },
- "long_stay_optical": {
-  "n": 48,
-  "brighter_inside": 25,
-  "p": 0.553036156527547
+ "s1_repeat_test": {
+  "lag_curve": [
+   {
+    "lag": "< 30 min",
+    "scene_pairs": 11,
+    "kappa": 0.262,
+    "p_b_given_a": 0.426
+   },
+   {
+    "lag": "30 min \u2013 14 h",
+    "scene_pairs": 149,
+    "kappa": 0.065,
+    "p_b_given_a": 0.326
+   },
+   {
+    "lag": "14 \u2013 36 h",
+    "scene_pairs": 109,
+    "kappa": 0.206,
+    "p_b_given_a": 0.42
+   },
+   {
+    "lag": "1.5 \u2013 4 d",
+    "scene_pairs": 141,
+    "kappa": 0.117,
+    "p_b_given_a": 0.405
+   },
+   {
+    "lag": "4 \u2013 12 d",
+    "scene_pairs": 1148,
+    "kappa": 0.082,
+    "p_b_given_a": 0.319
+   },
+   {
+    "lag": "12 \u2013 60 d",
+    "scene_pairs": 5369,
+    "kappa": 0.055,
+    "p_b_given_a": 0.301
+   },
+   {
+    "lag": "> 60 d",
+    "scene_pairs": 14272,
+    "kappa": 0.032,
+    "p_b_given_a": 0.281
+   }
+  ],
+  "base_occupancy": 0.266,
+  "near_pairs": 11,
+  "near_kappa": 0.262,
+  "near_score_spearman": 0.499,
+  "far_score_spearman": 0.152,
+  "match_m": 30.0,
+  "matched_near": 0.317,
+  "matched_far": 0.21
  }
 }

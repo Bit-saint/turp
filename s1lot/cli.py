@@ -96,7 +96,7 @@ def cmd_targets(a):
     res = detect_targets(site, p["chips"], params)
     log.info("%d detections, %d recurring positions", len(res.detections), len(res.positions))
     rgb = name = optical = None
-    if not a.no_optical:
+    if a.optical:
         try:
             from .s2context import true_colour
             out = true_colour(site, today=res.scenes.local_time.max().date())
@@ -168,7 +168,8 @@ def main(argv=None):
     t.add_argument("--ratio-db", type=float, help="dB above the empty background (default 7)")
     t.add_argument("--min-db", type=float, help="minimum absolute VV+VH sigma0 in dB (default -2)")
     t.add_argument("--min-pixels", type=int, help="connected pixels per target (default 2)")
-    t.add_argument("--no-optical", action="store_true", help="skip Sentinel-2 context and cross-check")
+    t.add_argument("--optical", action="store_true",
+                   help="also use Sentinel-2 (context image + optical cross-check); default: Sentinel-1 only")
     t.set_defaults(func=cmd_targets)
     r = sub.add_parser("run", help="discover + process + analyse")
     common(r, dates=True, workers=8)

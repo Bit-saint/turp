@@ -18,7 +18,7 @@ from matplotlib.colors import ListedColormap  # noqa: E402
 from .metrics import _db  # noqa: E402
 from .report import SLOT_COLORS, WEEKDAYS, _clean_map_axes, _png  # noqa: E402
 from .site import Site  # noqa: E402
-from .targets import _labels, episodes  # noqa: E402
+from .targets import _labels, episodes, repeat_test  # noqa: E402
 
 
 def _outline(ax, site: Site):
@@ -159,6 +159,22 @@ def fig_weekly(res):
     return fig
 
 
+def fig_repeat(rt: dict):
+    c = pd.DataFrame(rt["lag_curve"])
+    fig, ax = plt.subplots(figsize=(7.5, 3.3))
+    ax.plot(range(len(c)), c.kappa, "o-", color="#4C72B0")
+    for k, r in c.iterrows():
+        ax.annotate(f"n={r.scene_pairs}", (k, r.kappa), xytext=(0, 6), textcoords="offset points", ha="center",
+                    fontsize=7, color="0.4")
+    ax.axhline(0, color="0.5", lw=0.8)
+    ax.set_xticks(range(len(c)), c.lag, fontsize=8)
+    ax.set_ylabel("presence agreement\n(Cohen's kappa)")
+    ax.set_xlabel("time between the two Sentinel-1 images (different tracks)")
+    ax.set_title("Sentinel-1 repeat test: 1 = same answer in both images, 0 = chance", fontsize=9)
+    fig.tight_layout()
+    return fig
+
+
 def optical_agreement(res, optical: pd.DataFrame, max_gap_h: float = 9.0) -> pd.DataFrame:
     """Pair each optical observation with the S1 morning and evening passes of the same day.
 
@@ -241,7 +257,13 @@ def write(res, site: Site, out_dir: Path, chip_dir: Path, rgb, rgb_name, optical
     if assoc:
         summary["label_association"] = assoc
 
-    figs = {"map": fig_map(res, site, rgb, rgb_name, chip_dir), "timeline": fig_timeline(res),
+    rt = repeat_test(res)
+    summary["s1_repeat_test"] = {k: v for k, v in rt.items() if k != "near_pair_table"}
+    pd.DataFrame(rt["lag_curve"]).to_csv(out_dir / "repeat_lag_curve.csv", index=False)
+    if rt.get("near_pair_table"):
+        pd.DataFrame(rt["near_pair_table"]).to_csv(out_dir / "repeat_near_pairs.csv", index=False)
+
+    figs = {"repeat": fig_repeat(rt), "map": fig_map(res, site, rgb, rgb_name, chip_dir), "timeline": fig_timeline(res),
             "strips": fig_strips(res, site, chip_dir), "counts": fig_counts(res), "weekly": fig_weekly(res)}
     imgs = {}
     for k, f in figs.items():
@@ -284,6 +306,24 @@ at 10 m a narrow-body fuselage is thinner than a pixel.</p>"""
         f"<td>{r.days:.0f}</td><td>{r.detected_frac:.0%}</td>"
         + (f"<td>{r.optical_in:.2f} / {r.optical_out:.2f}</td>" if "optical_in" in eps and pd.notna(r.optical_in)
            else ("<td>–</td>" if "optical_in" in eps else "")) + "</tr>" for _, r in top_eps.iterrows())
+    near_txt = ""
+    if rt.get("near_pairs"):
+        near_txt = (
+            f"<p><b>Near-simultaneous pairs.</b> In {rt['near_pairs']} cases two Sentinel-1 satellites imaged the "
+            f"airport a few minutes apart from different orbits. Parked aircraft do not move in that time, so a reliable "
+            f"detector would give the same answer in both images. Agreement is kappa = <b>{rt['near_kappa']:.2f}</b>. "
+            f"{rt['matched_near']:.0%} of the targets in one image have a target within {rt['match_m']:g} m in the "
+            f"other, against {rt['matched_far']:.0%} for images taken days apart (chance level). The underlying "
+            f"brightness scores correlate at ρ = {rt['near_score_spearman']:.2f}, against "
+            f"{rt.get('far_score_spearman', float('nan')):.2f} for images more than 5 days apart. "
+            f"Part of the disagreement is physical: an aircraft's radar echo depends strongly on its orientation "
+            f"relative to the radar, and the two images view it from different orbits.</p>")
+    rep_html = (f"<h3>Sentinel-1 repeat test</h3>{near_txt}"
+                f"<img src=\"data:image/png;base64,{imgs['repeat']}\">"
+                "<p>If the detections were speckle, agreement would be about zero at every gap. If they were "
+                "fixed structures, it would stay high at every gap. Real objects that come and go give agreement "
+                "that is highest at short gaps and falls with time. A daily flight schedule also raises agreement at "
+                "the same time of day (14–36 h) above morning-versus-evening pairs (30 min – 14 h).</p>")
     val = [f"<li><b>False alarms.</b> On natural surfaces, where no target can be, the detector finds a median of "
            f"{summary['control_density_per_km2']:.2f} targets per km² per scene, against "
            f"{summary['search_density_per_km2']:.2f} per km² in the search area. If the search area produced false "
@@ -302,7 +342,7 @@ at 10 m a narrow-body fuselage is thinner than a pixel.</p>"""
         val.append(f"<li><b>Long stays vs optical.</b> For a long stay, the object is present at the optical "
                    f"pass time too. In {(d > 0).sum()} of {len(eps_opt)} long stays the position is brighter in Sentinel-2 during the stay "
                    f"than outside it (one-sided Wilcoxon p = {pval:.2f}).</li>")
-    val_html = "<ul>" + "".join(val) + "</ul>"
+    val_html = rep_html + "<h3>Other checks</h3><ul>" + "".join(val) + "</ul>"
     p = res.params
     top = res.positions.sort_values("occupancy", ascending=False)
     cols = [c for c in ("occupancy_morning", "occupancy_evening") if c in top]
@@ -342,7 +382,7 @@ below. Full list: <code>long_stays.csv</code>.</p>
 {eps_rows}</table>
 <h2>Validation</h2>
 {val_html}
-<h3>Cross-check with Sentinel-2</h3>{opt_html}
+{('<h3>Optional cross-check with Sentinel-2</h3>' + opt_html) if optical is not None else ''}
 <h2>Positions</h2>
 <p>"Appearances" counts how many times the position switched from empty to occupied between consecutive
 acquisitions. Labels are the nearest gate reference from OpenStreetMap within {p.label_max_m:g} m.</p>

@@ -7,7 +7,15 @@ import numpy as np
 from shapely.geometry import box
 
 from s1lot.site import Site
-from s1lot.targets import TargetParams, detect_targets
+from s1lot.targets import TargetParams, detect_targets, repeat_test
+
+
+def _write(path, t, k, rel_orbit, vv):
+    name = f"S1C_IW_GRDH_1SDV_{t:%Y%m%dT%H%M%S}_{t:%Y%m%dT%H%M%S}_{k:06d}_000000_0000"
+    np.savez(path / f"{name}.npz", vv=vv.astype(np.float32), vh=(vv / 6).astype(np.float32))
+    (path / f"{name}.json").write_text(json.dumps(dict(
+        product=name, mission="S1C", start=t.isoformat(), abs_orbit=k, rel_orbit=rel_orbit,
+        pass_direction="ascending", incidence=35.0, geoloc_rms_px=0.3)))
 
 
 def test_positions_and_presence_recovered(tmp_path):
@@ -33,11 +41,10 @@ def test_positions_and_presence_recovered(tmp_path):
             truth[name].append(occ)
             if occ:  # ~50 x 40 m aircraft, strong scatterer
                 vv[r - 2: r + 3, c - 2: c + 2] = 2.0 * rng.gamma(4.4, 1 / 4.4, (5, 4))
-        name = f"S1C_IW_GRDH_1SDV_{t:%Y%m%dT%H%M%S}_{t:%Y%m%dT%H%M%S}_{k:06d}_000000_0000"
-        np.savez(tmp_path / f"{name}.npz", vv=vv.astype(np.float32), vh=(vv / 6).astype(np.float32))
-        (tmp_path / f"{name}.json").write_text(json.dumps(dict(
-            product=name, mission="S1C", start=t.isoformat(), abs_orbit=k, rel_orbit=7,
-            pass_direction="ascending", incidence=35.0, geoloc_rms_px=0.3)))
+        _write(tmp_path, t, k, 7, vv)
+        if k % 4 == 0:  # second satellite, other track, 7 minutes later: same aircraft, new speckle
+            twin = vv * rng.gamma(4.4, 1 / 4.4, vv.shape)
+            _write(tmp_path, t + dt.timedelta(minutes=7), 1000 + k, 9, twin)
 
     res = detect_targets(site, tmp_path, TargetParams(min_hits_frac=0.1))
     assert len(res.positions) == 3, res.positions
@@ -47,7 +54,13 @@ def test_positions_and_presence_recovered(tmp_path):
         d = np.hypot(res.positions.x - x, res.positions.y - y)
         assert d.min() < 20
         pos = res.positions.position[d.idxmin()]
-        got = res.presence.loc[pos].values.astype(bool)
+        main = res.scenes[res.scenes.track == "A007"]["product"]
+        got = res.presence.loc[pos, main].values.astype(bool)
         assert (got == np.array(truth[name])).mean() > 0.95, name
     # fixed structure and speckle produce (almost) no false alarms
     assert res.scenes.control_density.median() == 0
+    # Sentinel-1 repeat test: near-simultaneous twins agree, distant pairs only by chance
+    rt = repeat_test(res)
+    assert rt["near_pairs"] == 15
+    assert rt["near_kappa"] > 0.8 and rt["matched_near"] > 0.8
+    assert rt["lag_curve"][-1]["kappa"] < 0.3
